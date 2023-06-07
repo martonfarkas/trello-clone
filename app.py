@@ -4,7 +4,7 @@ from datetime import date
 from flask_marshmallow import Marshmallow
 from flask_bcrypt import Bcrypt
 from sqlalchemy.exc import IntegrityError
-from flask_jwt_extended import JWTManager, create_access_token
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from datetime import timedelta
 
 app = Flask(__name__)
@@ -14,7 +14,7 @@ app.config['JWT_SECRET_KEY'] = 'Ministry of Silly Walks'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://trello_dev:spameggs123@localhost:5432/trello'
 
-# db  is just a variable
+
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
 bcrypt = Bcrypt(app)
@@ -144,7 +144,15 @@ def login():
         return {'error': 'Email and password are required'}, 400
 
 @app.route('/cards')
+@jwt_required()
 def all_cards():
+    user_email = get_jwt_identity()
+    stmt = db.select(User).filter_by(email=user_email)
+    user = db.session.scalar(stmt)
+    if not user.is_admin:
+        return {'error': 'You must be an admin'}, 401
+
+
     # select * from cards;
     stmt = db.select(Card).order_by(Card.status.desc())
     cards = db.session.scalars(stmt).all()
